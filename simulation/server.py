@@ -43,12 +43,16 @@ date = DateElement()
 cattle_count_chart = ChartModule([{"Label": "Cattle count", "Color": "Black"}])
 
 model_params_constant = {
-    'size': 16000000,
+    'size': 1000,
     'init_cattle_count': UserSettableParameter("number", "Initial cattle count", 300, 1, 1000),
     'males_per_female': UserSettableParameter("number", "Males per female", 0.01, 0.001, 0.1),
-    'cattle_move_speed': UserSettableParameter("slider", "Move speed", 5000, 5000, 50000),
-    'mating_vision': UserSettableParameter("slider", "Mating vision", 5, 1, 20)
+    'cattle_move_speed': UserSettableParameter("slider", "Move speed", 50, 10, 100),
+    'cattle_vision': UserSettableParameter("slider", "Mating vision", 50, 30, 150),
+    'cattle_separation': UserSettableParameter("slider", "Min separation", 10, 5, 20)
 }
+
+# self, size: float, init_cattle_count: int, males_per_female: float, cattle_move_speed: float,
+#                  cattle_vision: float, cattle_separation: float
 
 server = CattleFarmServer(CattleFarmModel,
                           [canvas, date, cattle_count_chart],

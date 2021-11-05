@@ -7,7 +7,7 @@ from mesa.space import ContinuousSpace
 from mesa.time import RandomActivation
 from numpy import ndarray
 
-from .cattle_agent import FemaleCattle, MaleCattle
+import cattle_agent
 
 constants = {
     'start_age_min': 356 * 1,
@@ -18,7 +18,8 @@ one_day_delta = timedelta(days=1)
 
 
 class CattleFarmModel(Model):
-    def __init__(self, size: float, init_cattle_count: int, males_per_female: float, cattle_move_speed: int, mating_vision: int):
+    def __init__(self, size: float, init_cattle_count: int, males_per_female: float, cattle_move_speed: float,
+                 cattle_vision: float, cattle_separation: float):
         super().__init__()
         self.init_cattle_count = init_cattle_count
         self.males_per_female = males_per_female
@@ -26,9 +27,10 @@ class CattleFarmModel(Model):
         self.__cattle_id_sequence = 0
 
         self.cattle_move_speed = cattle_move_speed
-        self.mating_vision = mating_vision
+        self.cattle_vision = cattle_vision
+        self.cattle_separation = cattle_separation
 
-        self.male_cattles = []
+        self.male_cattle = []
         self.males_in_cage = False
 
         self.current_date = date(date.today().year, 1, 1)
@@ -48,22 +50,26 @@ class CattleFarmModel(Model):
         # create males
         for i in range(male_count):
             pos = self.__random_position()
-            agent = MaleCattle(self.cattle_id_sequence, self, pos, self.cattle_move_speed, self.mating_vision)
+            heading = np.random.random(2) * 2 - 1
+            agent = cattle_agent.MaleCattle(self.cattle_id_sequence, self, pos, constants['start_age_min'],
+                                            self.cattle_move_speed, heading, self.cattle_vision, self.cattle_separation)
             print("Created male agent: ", agent.unique_id)
-            self.male_cattles.append(agent)
+            self.male_cattle.append(agent)
 
         # create females
         for i in range(self.init_cattle_count):
             age_days = self.random.randint(constants['start_age_min'], constants['start_age_max'])
             pos = self.__random_position()
-            agent = FemaleCattle(self.cattle_id_sequence, self, pos, age_days, self.cattle_move_speed)
+            heading = np.random.random(2) * 2 - 1
+            agent = cattle_agent.FemaleCattle(self.cattle_id_sequence, self, pos, age_days, self.cattle_move_speed,
+                                              heading, self.cattle_vision, self.cattle_separation)
             self.add_agent(agent)
 
-    def add_agent(self, agent):
-        print("Adding agent: ", agent.unique_id)
+    def add_agent(self, agent, should_account_agent=True):
         self.space.place_agent(agent, agent.pos)
         self.schedule.add(agent)
-        self.cattle_count += 1
+        if should_account_agent:
+            self.cattle_count += 1
 
     def remove_agent(self, agent):
         self.space.remove_agent(agent)
@@ -95,12 +101,12 @@ class CattleFarmModel(Model):
         if self.mating_season and not self.males_in_cage:
             print("Mating season! Adding males to cage...")
             self.males_in_cage = True
-            for male in self.male_cattles:
+            for male in self.male_cattle:
                 male.reset_age()
                 male.pos = self.__random_position()
-                self.add_agent(male)
+                self.add_agent(male, False)
         if not self.mating_season and self.males_in_cage:
             print("Mating season is over, removing males from cage...")
             self.males_in_cage = False
-            for male in self.male_cattles:
+            for male in self.male_cattle:
                 self.remove_agent(male)
