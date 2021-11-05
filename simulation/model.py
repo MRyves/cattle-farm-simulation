@@ -7,7 +7,7 @@ from mesa.space import ContinuousSpace
 from mesa.time import RandomActivation
 from numpy import ndarray
 
-import cattle_agent
+from simulation.cattle_agent import CattleBuilder
 
 constants = {
     'start_age_min': 356 * 1,
@@ -18,18 +18,24 @@ one_day_delta = timedelta(days=1)
 
 
 class CattleFarmModel(Model):
-    def __init__(self, size: float, init_cattle_count: int, males_per_female: float, cattle_move_speed: float,
-                 cattle_vision: float, cattle_separation: float):
+    def __init__(self,
+                 size: float,
+                 init_cattle_count: int,
+                 males_per_female: float,
+                 init_infection_count: int,
+                 infection_radius: int,
+                 chance_of_virus_transmission: float,
+                 cattle_move_speed: float,
+                 cattle_vision: float,
+                 cattle_separation: float):
         super().__init__()
         self.init_cattle_count = init_cattle_count
         self.males_per_female = males_per_female
         self.cattle_count = 0
         self.__cattle_id_sequence = 0
 
-        self.cattle_move_speed = cattle_move_speed
-        self.cattle_vision = cattle_vision
-        self.cattle_separation = cattle_separation
-
+        self.cattle_builder = CattleBuilder(self, cattle_move_speed, cattle_vision, cattle_separation, infection_radius,
+                                            chance_of_virus_transmission)
         self.male_cattle = []
         self.males_in_cage = False
 
@@ -38,31 +44,34 @@ class CattleFarmModel(Model):
         self.space = ContinuousSpace(size, size, False)
         self.schedule = RandomActivation(self)
 
-        self.init_agents()
+        self.init_agents(init_infection_count)
+
         self.datacollector = DataCollector(
             {"Cattle count": "cattle_count"}
         )
         self.datacollector.collect(self)
         self.running = True
 
-    def init_agents(self):
+    def init_agents(self, init_infection_count):
         male_count = int(round(self.init_cattle_count * self.males_per_female, 0))
         # create males
         for i in range(male_count):
             pos = self.__random_position()
             heading = np.random.random(2) * 2 - 1
-            agent = cattle_agent.MaleCattle(self.cattle_id_sequence, self, pos, constants['start_age_min'],
-                                            self.cattle_move_speed, heading, self.cattle_vision, self.cattle_separation)
+            agent = self.cattle_builder.build(self.cattle_id_sequence, pos, heading, constants['start_age_min'], True)
             print("Created male agent: ", agent.unique_id)
             self.male_cattle.append(agent)
 
         # create females
+        infection_count = 0
         for i in range(self.init_cattle_count):
             age_days = self.random.randint(constants['start_age_min'], constants['start_age_max'])
             pos = self.__random_position()
             heading = np.random.random(2) * 2 - 1
-            agent = cattle_agent.FemaleCattle(self.cattle_id_sequence, self, pos, age_days, self.cattle_move_speed,
-                                              heading, self.cattle_vision, self.cattle_separation)
+            agent = self.cattle_builder.build(self.cattle_id_sequence, pos, heading, age_days)
+            if infection_count < init_infection_count:
+                agent.infected_since_day = 0
+                infection_count += 1
             self.add_agent(agent)
 
     def add_agent(self, agent, should_account_agent=True):

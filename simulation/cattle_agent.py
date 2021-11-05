@@ -3,7 +3,6 @@ import random
 from numpy import ndarray
 
 from .boid import Boid
-import model
 
 constants = {
     'cohere': 0.05,  # the relative importance of matching neighbors' positions
@@ -22,7 +21,7 @@ constants = {
 
 
 class Cattle(Boid):
-    def __init__(self, unique_id: int, model: model.CattleFarmModel, pos: ndarray, age_days: int, speed: float,
+    def __init__(self, unique_id: int, model, pos: ndarray, age_days: int, speed: float,
                  heading: ndarray, vision: float, separation: float):
         """
         The base class of the agents which implements common methods.
@@ -39,9 +38,13 @@ class Cattle(Boid):
         super().__init__(unique_id, model, pos, speed, heading, vision, separation, constants['cohere'],
                          constants['separate'], constants['match'])
         self.age_days = age_days
-        self.pos = pos
         self.space = model.space
         self.move_speed = speed
+        self.infected_since_day = -1
+
+    @property
+    def is_infected(self):
+        return self.infected_since_day > -1
 
     def step(self) -> None:
         """
@@ -52,29 +55,48 @@ class Cattle(Boid):
         if self.age_days >= constants['max_age']:
             self.space.remove_agent(self)
             return
+        if self.is_infected:
+            self.infected_since_day += 1
         super().step()
 
 
 class FemaleCattle(Cattle):
-    def __init__(self, unique_id: int, model, pos: ndarray, age_days: int, speed: float, heading: ndarray,
-                 vision: float, separation: float):
+    def __init__(self,
+                 unique_id: int,
+                 model,
+                 pos: ndarray,
+                 age_days: int,
+                 speed: float,
+                 heading: ndarray,
+                 vision: float,
+                 separation: float,
+                 infection_radius: int,
+                 chance_of_virus_transmission: float):
         """
        Create a new female cattle. The FemaleCattle is a very simple agent, all it does is move around. A female
        cattle may also be fertilized by a bull. The pregnancy lasts for 285 days, then a new baby cattle is placed at
        the same location of the cattle in the model.
        See Cattle base class for parameter doc.
         """
+
         super().__init__(unique_id, model, pos, age_days, speed, heading, vision, separation)
+        self.infection_radius = infection_radius
+        self.chance_of_virus_transmission = chance_of_virus_transmission
         self.days_pregnant = -1
 
     def step(self):
         super().step()
+        self.handle_pregnancy()
+        self.handle_infection()
+
+    def handle_pregnancy(self):
         if self.days_pregnant != -1:
             if self.days_pregnant >= constants['gestation_length_days']:
                 if self.random.random() < constants['female_fetus_chance']:
                     # add baby cattle at position of mother
                     new_agent = FemaleCattle(self.model.cattle_id_sequence, self.model, self.pos, 0, self.move_speed,
-                                             self.heading, self.vision, self.separation)
+                                             self.heading, self.vision, self.separation, self.infection_radius,
+                                             self.chance_of_virus_transmission)
                     self.model.add_agent(new_agent)
                     self.days_pregnant = -1
                 else:
@@ -82,12 +104,23 @@ class FemaleCattle(Cattle):
             else:
                 self.days_pregnant += 1
 
+    def handle_infection(self):
+        if self.is_infected:
+            healthy_friends_around = list(filter(
+                lambda c: type(c) is FemaleCattle and not c.is_infected,
+                self.space.get_neighbors(self.pos, self.infection_radius, False)))
+            for neighbor in healthy_friends_around:
+                if self.random.random() <= self.chance_of_virus_transmission:
+                    neighbor.infected_since_day = 0
+                    print("Cattle " + str(neighbor.unique_id) + " was infected...")
+
     def gets_fertilized(self):
         self.days_pregnant = 0
 
     @property
     def is_fertile(self):
-        return self.days_pregnant == -1 and constants['min_mating_age'] < self.age_days < constants['max_mating_age']
+        return self.days_pregnant == -1 and \
+               constants['min_mating_age'] < self.age_days < constants['max_mating_age']
 
 
 class MaleCattle(Cattle):
@@ -117,3 +150,34 @@ class MaleCattle(Cattle):
 
     def reset_age(self):
         self.age_days = constants['min_mating_age']
+
+    @property
+    def is_infected(self):
+        """
+        Since males are only added to the cage in mating season it is assumed that only healthy males are added
+        :return: False
+        """
+        return False
+
+
+class CattleBuilder:
+    def __init__(self,
+                 model,
+                 speed,
+                 vision,
+                 separation,
+                 infection_radius,
+                 chance_of_virus_transmission):
+        self.model = model
+        self.speed = speed
+        self.vision = vision
+        self.separation = separation
+        self.infection_radius = infection_radius
+        self.chance_of_virus_transmission = chance_of_virus_transmission
+
+    def build(self, unique_id, pos, heading, age_days, is_male=False) -> Cattle:
+        if is_male:
+            return MaleCattle(unique_id, self.model, pos, age_days, self.speed, heading, self.vision, self.separation)
+        else:
+            return FemaleCattle(unique_id, self.model, pos, age_days, self.speed, heading, self.vision, self.separation,
+                                self.infection_radius, self.chance_of_virus_transmission)

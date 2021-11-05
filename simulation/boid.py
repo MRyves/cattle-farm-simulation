@@ -47,7 +47,7 @@ class Boid(Agent):
 
         """
         super().__init__(unique_id, model)
-        self.pos = np.array(pos)
+        self.pos = pos
         self.speed = speed
         self.heading = heading
         self.vision = vision

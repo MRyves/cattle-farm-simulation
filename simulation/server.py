@@ -27,11 +27,13 @@ class DateElement(TextElement):
 
 def agent_portrayal(agent: FemaleCattle):
     portrayal = {'Shape': 'circle',
-                 'Color': 'Red',
+                 'Color': 'Yellow',
                  'Filled': 'true',
                  'r': 1}
     if type(agent) is MaleCattle:
         portrayal['Color'] = 'Blue'
+    elif agent.is_infected:
+        portrayal['Color'] = 'Red'
     elif not agent.is_fertile:
         portrayal['Color'] = 'Green'
 
@@ -46,13 +48,13 @@ model_params_constant = {
     'size': 1000,
     'init_cattle_count': UserSettableParameter("number", "Initial cattle count", 300, 1, 1000),
     'males_per_female': UserSettableParameter("number", "Males per female", 0.01, 0.001, 0.1),
+    'init_infection_count': UserSettableParameter("number", "Initially infected cattle", 1, 1, 10),
+    'infection_radius': UserSettableParameter("slider", "Infection radius", 10, 5, 20),
+    'chance_of_virus_transmission': UserSettableParameter("slider", "Chance of virus transmission", 0.5, 0.1, 0.8, 0.1),
     'cattle_move_speed': UserSettableParameter("slider", "Move speed", 50, 10, 100),
     'cattle_vision': UserSettableParameter("slider", "Mating vision", 50, 30, 150),
     'cattle_separation': UserSettableParameter("slider", "Min separation", 10, 5, 20)
 }
-
-# self, size: float, init_cattle_count: int, males_per_female: float, cattle_move_speed: float,
-#                  cattle_vision: float, cattle_separation: float
 
 server = CattleFarmServer(CattleFarmModel,
                           [canvas, date, cattle_count_chart],
