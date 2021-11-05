@@ -32,6 +32,7 @@ class CattleFarmModel(Model):
         self.init_cattle_count = init_cattle_count
         self.males_per_female = males_per_female
         self.cattle_count = 0
+        self.infected_count = init_infection_count
         self.__cattle_id_sequence = 0
 
         self.cattle_builder = CattleBuilder(self, cattle_move_speed, cattle_vision, cattle_separation, infection_radius,
@@ -47,7 +48,8 @@ class CattleFarmModel(Model):
         self.init_agents(init_infection_count)
 
         self.datacollector = DataCollector(
-            {"Cattle count": "cattle_count"}
+            {"Cattle count": "cattle_count",
+             "Infected count": "infected_count"},
         )
         self.datacollector.collect(self)
         self.running = True
@@ -80,15 +82,20 @@ class CattleFarmModel(Model):
         if should_account_agent:
             self.cattle_count += 1
 
-    def remove_agent(self, agent):
+    def remove_agent(self, agent, should_account_agent=True):
+        if agent.is_infected:
+            self.infected_count -= 1
+        if should_account_agent:
+            self.cattle_count -= 1
         self.space.remove_agent(agent)
         self.schedule.remove(agent)
-        self.cattle_count -= 1
 
     def step(self) -> None:
         self.__handle_mating_seasons()
         self.schedule.step()
         self.current_date += one_day_delta
+        print("Total cattle count: " + str(self.cattle_count))
+        print("Total infected count: " + str(self.infected_count))
         self.datacollector.collect(self)
 
     @property
@@ -118,4 +125,4 @@ class CattleFarmModel(Model):
             print("Mating season is over, removing males from cage...")
             self.males_in_cage = False
             for male in self.male_cattle:
-                self.remove_agent(male)
+                self.remove_agent(male, False)

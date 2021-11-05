@@ -42,7 +42,8 @@ def agent_portrayal(agent: FemaleCattle):
 
 canvas = SimpleCanvas(agent_portrayal, 700, 700)
 date = DateElement()
-cattle_count_chart = ChartModule([{"Label": "Cattle count", "Color": "Black"}])
+cattle_count_chart = ChartModule(
+    [{"Label": "Cattle count", "Color": "Black"}, {"Label": "Infected count", "Color": "Red"}])
 
 model_params_constant = {
     'size': 1000,
@@ -50,7 +51,8 @@ model_params_constant = {
     'males_per_female': UserSettableParameter("number", "Males per female", 0.01, 0.001, 0.1),
     'init_infection_count': UserSettableParameter("number", "Initially infected cattle", 1, 1, 10),
     'infection_radius': UserSettableParameter("slider", "Infection radius", 10, 5, 20),
-    'chance_of_virus_transmission': UserSettableParameter("slider", "Chance of virus transmission", 0.5, 0.1, 0.8, 0.1),
+    'chance_of_virus_transmission': UserSettableParameter("slider", "Chance of virus transmission", 0.02, 0.01, 0.25,
+                                                          0.01),
     'cattle_move_speed': UserSettableParameter("slider", "Move speed", 50, 10, 100),
     'cattle_vision': UserSettableParameter("slider", "Mating vision", 50, 30, 150),
     'cattle_separation': UserSettableParameter("slider", "Min separation", 10, 5, 20)

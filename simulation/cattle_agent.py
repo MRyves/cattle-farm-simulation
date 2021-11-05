@@ -53,7 +53,7 @@ class Cattle(Boid):
         """
         self.age_days += 1
         if self.age_days >= constants['max_age']:
-            self.space.remove_agent(self)
+            self.model.remove_agent(self)
             return
         if self.is_infected:
             self.infected_since_day += 1
@@ -85,9 +85,9 @@ class FemaleCattle(Cattle):
         self.days_pregnant = -1
 
     def step(self):
-        super().step()
         self.handle_pregnancy()
         self.handle_infection()
+        super().step()
 
     def handle_pregnancy(self):
         if self.days_pregnant != -1:
@@ -98,9 +98,8 @@ class FemaleCattle(Cattle):
                                              self.heading, self.vision, self.separation, self.infection_radius,
                                              self.chance_of_virus_transmission)
                     self.model.add_agent(new_agent)
-                    self.days_pregnant = -1
-                else:
-                    self.days_pregnant = -1
+
+                self.days_pregnant = -1
             else:
                 self.days_pregnant += 1
 
@@ -112,7 +111,7 @@ class FemaleCattle(Cattle):
             for neighbor in healthy_friends_around:
                 if self.random.random() <= self.chance_of_virus_transmission:
                     neighbor.infected_since_day = 0
-                    print("Cattle " + str(neighbor.unique_id) + " was infected...")
+                    self.model.infected_count += 1
 
     def gets_fertilized(self):
         self.days_pregnant = 0
@@ -135,8 +134,8 @@ class MaleCattle(Cattle):
         self.vision = vision
 
     def step(self):
-        super().step()
         self.look_for_mating()
+        super().step()
 
     def look_for_mating(self):
         females_around = list(filter(
