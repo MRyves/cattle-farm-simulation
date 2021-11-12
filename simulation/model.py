@@ -94,8 +94,6 @@ class CattleFarmModel(Model):
         self.__handle_mating_seasons()
         self.schedule.step()
         self.current_date += one_day_delta
-        print("Total cattle count: " + str(self.cattle_count))
-        print("Total infected count: " + str(self.infected_count))
         self.datacollector.collect(self)
 
     @property
