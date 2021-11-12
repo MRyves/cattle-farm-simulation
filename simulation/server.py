@@ -25,9 +25,16 @@ class DateElement(TextElement):
         return "Current date: " + model.current_date.strftime("%b %d %Y")
 
 
+class RandomCheckElement(TextElement):
+    def __init__(self):
+        super().__init__()
+
+    def render(self, model):
+        return "Random check removals: " + str(model.statistics.removed_through_random_check)
+
 def agent_portrayal(agent: FemaleCattle):
     portrayal = {'Shape': 'circle',
-                 'Color': 'Yellow',
+                 'Color': '#db32c8',
                  'Filled': 'true',
                  'r': 1}
     if type(agent) is MaleCattle:
@@ -44,6 +51,7 @@ canvas = SimpleCanvas(agent_portrayal, 700, 700)
 date = DateElement()
 cattle_count_chart = ChartModule(
     [{"Label": "Cattle count", "Color": "Black"}, {"Label": "Infected count", "Color": "Red"}])
+removed_through_random_check = RandomCheckElement()
 
 model_params_constant = {
     'size': 1000,
@@ -51,6 +59,7 @@ model_params_constant = {
     'males_per_female': UserSettableParameter("number", "Males per female", 0.01, 0.001, 0.1),
     'init_infection_count': UserSettableParameter("number", "Initially infected cattle", 1, 1, 10),
     'infection_radius': UserSettableParameter("slider", "Infection radius", 10, 5, 20),
+    'infection_check_sample_size': UserSettableParameter("slider", "Infection check sample size", 1, 1, 10),
     'chance_of_virus_transmission': UserSettableParameter("slider", "Chance of virus transmission", 0.02, 0.01, 0.25,
                                                           0.01),
     'cattle_move_speed': UserSettableParameter("slider", "Move speed", 50, 10, 100),
@@ -59,6 +68,6 @@ model_params_constant = {
 }
 
 server = CattleFarmServer(CattleFarmModel,
-                          [canvas, date, cattle_count_chart],
+                          [canvas, date, cattle_count_chart, removed_through_random_check],
                           'Cattle farm',
                           model_params_constant)

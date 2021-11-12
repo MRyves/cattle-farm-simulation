@@ -111,7 +111,7 @@ class FemaleCattle(Cattle):
             for neighbor in healthy_friends_around:
                 if self.random.random() <= self.chance_of_virus_transmission:
                     neighbor.infected_since_day = 0
-                    self.model.infected_count += 1
+                    self.model.statistics.infected_count += 1
 
     def gets_fertilized(self):
         self.days_pregnant = 0

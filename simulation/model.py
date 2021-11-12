@@ -7,14 +7,20 @@ from mesa.space import ContinuousSpace
 from mesa.time import RandomActivation
 from numpy import ndarray
 
-from simulation.cattle_agent import CattleBuilder
+from simulation.cattle_agent import CattleBuilder, FemaleCattle
 
 constants = {
     'start_age_min': 356 * 1,
-    'start_age_max': 356 * 10
+    'start_age_max': 356 * 9
 }
 
 one_day_delta = timedelta(days=1)
+
+class Statistics:
+    def __init__(self, infected_count=0):
+        self.cattle_count = 0
+        self.infected_count = infected_count
+        self.removed_through_random_check = 0
 
 
 class CattleFarmModel(Model):
@@ -24,16 +30,14 @@ class CattleFarmModel(Model):
                  males_per_female: float,
                  init_infection_count: int,
                  infection_radius: int,
+                 infection_check_sample_size: int,
                  chance_of_virus_transmission: float,
                  cattle_move_speed: float,
                  cattle_vision: float,
                  cattle_separation: float):
         super().__init__()
-        self.init_cattle_count = init_cattle_count
-        self.males_per_female = males_per_female
-        self.cattle_count = 0
-        self.infected_count = init_infection_count
         self.__cattle_id_sequence = 0
+        self.infection_check_sample_size = infection_check_sample_size
 
         self.cattle_builder = CattleBuilder(self, cattle_move_speed, cattle_vision, cattle_separation, infection_radius,
                                             chance_of_virus_transmission)
@@ -42,20 +46,25 @@ class CattleFarmModel(Model):
 
         self.current_date = date(date.today().year, 1, 1)
 
+        self.statistics = Statistics(init_infection_count)
+
         self.space = ContinuousSpace(size, size, False)
         self.schedule = RandomActivation(self)
 
-        self.init_agents(init_infection_count)
+        self.init_agents(init_cattle_count, males_per_female, init_infection_count)
 
         self.datacollector = DataCollector(
-            {"Cattle count": "cattle_count",
-             "Infected count": "infected_count"},
+            {
+                "Cattle count": lambda m: m.statistics.cattle_count,
+                "Infected count": lambda m: m.statistics.infected_count,
+                "Removed through random check": lambda m: m.statistics.removed_through_random_check,
+            },
         )
         self.datacollector.collect(self)
         self.running = True
 
-    def init_agents(self, init_infection_count):
-        male_count = int(round(self.init_cattle_count * self.males_per_female, 0))
+    def init_agents(self, init_cattle_count, males_per_female, init_infection_count):
+        male_count = int(round(init_cattle_count * males_per_female, 0))
         # create males
         for i in range(male_count):
             pos = self.__random_position()
@@ -66,7 +75,7 @@ class CattleFarmModel(Model):
 
         # create females
         infection_count = 0
-        for i in range(self.init_cattle_count):
+        for i in range(init_cattle_count):
             age_days = self.random.randint(constants['start_age_min'], constants['start_age_max'])
             pos = self.__random_position()
             heading = np.random.random(2) * 2 - 1
@@ -80,18 +89,19 @@ class CattleFarmModel(Model):
         self.space.place_agent(agent, agent.pos)
         self.schedule.add(agent)
         if should_account_agent:
-            self.cattle_count += 1
+            self.statistics.cattle_count += 1
 
     def remove_agent(self, agent, should_account_agent=True):
         if agent.is_infected:
-            self.infected_count -= 1
+            self.statistics.infected_count -= 1
         if should_account_agent:
-            self.cattle_count -= 1
+            self.statistics.cattle_count -= 1
         self.space.remove_agent(agent)
         self.schedule.remove(agent)
 
     def step(self) -> None:
         self.__handle_mating_seasons()
+        self.__random_infection_check()
         self.schedule.step()
         self.current_date += one_day_delta
         self.datacollector.collect(self)
@@ -110,6 +120,15 @@ class CattleFarmModel(Model):
         new_x = self.random.random() * self.space.x_max
         new_y = self.random.random() * self.space.y_max
         return np.array((new_x, new_y))
+
+    def __random_infection_check(self):
+        selection = filter(lambda a: type(a) is FemaleCattle and a.is_infected,
+                           self.random.sample(self.schedule.agents, k=self.infection_check_sample_size))
+        for agent in selection:
+            print("Random infection check found infected cattle with ID: " +
+                  str(agent.unique_id) + ", will remove from space")
+            self.remove_agent(agent)
+            self.statistics.removed_through_random_check += 1
 
     def __handle_mating_seasons(self):
         if self.mating_season and not self.males_in_cage:
