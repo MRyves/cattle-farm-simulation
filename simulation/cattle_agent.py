@@ -1,8 +1,10 @@
 import random
 
+from mesa import Agent
 from numpy import ndarray
 
 from .boid import Boid
+from .handlers import MovementHandler
 
 constants = {
     'cohere': 0.05,  # the relative importance of matching neighbors' positions
@@ -20,9 +22,9 @@ constants = {
 }
 
 
-class Cattle(Boid):
-    def __init__(self, unique_id: int, model, pos: ndarray, age_days: int, speed: float,
-                 heading: ndarray, vision: float, separation: float):
+class Cattle(Agent):
+    def __init__(self, unique_id: int, model, age_days: int, heading: ndarray, speed: float, vision: float,
+                 separation: float):
         """
         The base class of the agents which implements common methods.
 
@@ -35,12 +37,12 @@ class Cattle(Boid):
         :param vision: how far does a cattle see and recognize its neighbors
         :param separation the minimum distance each cattle will attempt to keep from its neighbors
         """
-        super().__init__(unique_id, model, pos, speed, heading, vision, separation, constants['cohere'],
-                         constants['separate'], constants['match'])
+        super().__init__(unique_id, model)
+        self.infected_since_day = -1
         self.age_days = age_days
         self.space = model.space
-        self.move_speed = speed
-        self.infected_since_day = -1
+        self.heading = heading
+        self.movement_handler = MovementHandler(self, speed, vision, separation)
 
     @property
     def is_infected(self):
@@ -57,17 +59,16 @@ class Cattle(Boid):
             return
         if self.is_infected:
             self.infected_since_day += 1
-        super().step()
+        self.movement_handler.handle()
 
 
 class FemaleCattle(Cattle):
     def __init__(self,
                  unique_id: int,
                  model,
-                 pos: ndarray,
                  age_days: int,
-                 speed: float,
                  heading: ndarray,
+                 speed: float,
                  vision: float,
                  separation: float,
                  infection_radius: int,
@@ -79,7 +80,7 @@ class FemaleCattle(Cattle):
        See Cattle base class for parameter doc.
         """
 
-        super().__init__(unique_id, model, pos, age_days, speed, heading, vision, separation)
+        super().__init__(unique_id, model, age_days, heading, speed, vision, separation)
         self.infection_radius = infection_radius
         self.chance_of_virus_transmission = chance_of_virus_transmission
         self.days_pregnant = -1
@@ -94,10 +95,8 @@ class FemaleCattle(Cattle):
             if self.days_pregnant >= constants['gestation_length_days']:
                 if self.random.random() < constants['female_fetus_chance']:
                     # add baby cattle at position of mother
-                    new_agent = FemaleCattle(self.model.cattle_id_sequence, self.model, self.pos, 0, self.move_speed,
-                                             self.heading, self.vision, self.separation, self.infection_radius,
-                                             self.chance_of_virus_transmission)
-                    self.model.add_agent(new_agent)
+                    new_agent = self.model.cattle_builder.build(self.model.cattle_id_sequence, self.heading, 0)
+                    self.model.add_agent(new_agent, self.pos)
 
                 self.days_pregnant = -1
             else:
@@ -123,14 +122,13 @@ class FemaleCattle(Cattle):
 
 
 class MaleCattle(Cattle):
-    def __init__(self, unique_id: int, model, pos: ndarray, age_days: int, speed: float, heading: ndarray,
-                 vision: float, separation: float):
+    def __init__(self, unique_id: int, model, heading: ndarray, speed: float, vision: float, separation: float):
         """
         A male cattle moves around and mates with a female agent in his vision (see cattle_vision). Since males are
         only seasonally placed in the model a male does not age, hence the reset age method.
         See base class for parameter doc
         """
-        super().__init__(unique_id, model, pos, constants['min_mating_age'], speed, heading, vision, separation)
+        super().__init__(unique_id, model, constants['min_mating_age'], heading, speed, vision, separation)
         self.vision = vision
 
     def step(self):
@@ -174,9 +172,9 @@ class CattleBuilder:
         self.infection_radius = infection_radius
         self.chance_of_virus_transmission = chance_of_virus_transmission
 
-    def build(self, unique_id, pos, heading, age_days, is_male=False) -> Cattle:
+    def build(self, unique_id, heading, age_days, is_male=False) -> Cattle:
         if is_male:
-            return MaleCattle(unique_id, self.model, pos, age_days, self.speed, heading, self.vision, self.separation)
+            return MaleCattle(unique_id, self.model, heading, self.speed, self.vision, self.separation)
         else:
-            return FemaleCattle(unique_id, self.model, pos, age_days, self.speed, heading, self.vision, self.separation,
+            return FemaleCattle(unique_id, self.model, age_days, heading, self.speed, self.vision, self.separation,
                                 self.infection_radius, self.chance_of_virus_transmission)

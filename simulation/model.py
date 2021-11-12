@@ -69,7 +69,7 @@ class CattleFarmModel(Model):
         for i in range(male_count):
             pos = self.__random_position()
             heading = np.random.random(2) * 2 - 1
-            agent = self.cattle_builder.build(self.cattle_id_sequence, pos, heading, constants['start_age_min'], True)
+            agent = self.cattle_builder.build(self.cattle_id_sequence, heading, constants['start_age_min'], True)
             print("Created male agent: ", agent.unique_id)
             self.male_cattle.append(agent)
 
@@ -79,14 +79,14 @@ class CattleFarmModel(Model):
             age_days = self.random.randint(constants['start_age_min'], constants['start_age_max'])
             pos = self.__random_position()
             heading = np.random.random(2) * 2 - 1
-            agent = self.cattle_builder.build(self.cattle_id_sequence, pos, heading, age_days)
+            agent = self.cattle_builder.build(self.cattle_id_sequence, heading, age_days)
             if infection_count < init_infection_count:
                 agent.infected_since_day = 0
                 infection_count += 1
-            self.add_agent(agent)
+            self.add_agent(agent, pos)
 
-    def add_agent(self, agent, should_account_agent=True):
-        self.space.place_agent(agent, agent.pos)
+    def add_agent(self, agent, pos, should_account_agent=True):
+        self.space.place_agent(agent, pos)
         self.schedule.add(agent)
         if should_account_agent:
             self.statistics.cattle_count += 1
@@ -136,8 +136,7 @@ class CattleFarmModel(Model):
             self.males_in_cage = True
             for male in self.male_cattle:
                 male.reset_age()
-                male.pos = self.__random_position()
-                self.add_agent(male, False)
+                self.add_agent(male, self.__random_position(), False)
         if not self.mating_season and self.males_in_cage:
             print("Mating season is over, removing males from cage...")
             self.males_in_cage = False
