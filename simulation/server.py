@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.template import Template, Context, Engine
 from mesa.visualization.ModularVisualization import ModularServer
 from mesa.visualization.UserParam import UserSettableParameter
 from mesa.visualization.modules import TextElement, ChartModule
@@ -25,24 +27,49 @@ class DateElement(TextElement):
         return "Current date: " + model.current_date.strftime("%b %d %Y")
 
 
-class RandomCheckElement(TextElement):
+class StatisticsTableElement(TextElement):
     def __init__(self):
         super().__init__()
+        settings.configure()
+        self.table_template_str = """
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Value</th>
+                <tr>
+            </thead>
+            <tbody>
+                {{ body|safe }}
+            </tbody>
+        </table>
+        """
+        self.template = Template(self.table_template_str, engine=Engine())
 
     def render(self, model):
-        return "Random check removals: " + str(model.statistics.removed_through_random_check)
+        body = self.__get_table_row("Total cattle: ", model.statistics.cattle_count)
+        body += self.__get_table_row("Total infected: ", model.statistics.infected_count)
+        body += self.__get_table_row("Removed through random check: ", model.statistics.removed_through_random_check)
+        c = Context({'body': body})
+        return self.template.render(c)
+
+    def __get_table_row(self, title, number):
+        return "<tr><td>" + title + "</td><td>" + str(number) + "</td></tr>"
+
 
 def agent_portrayal(agent: FemaleCattle):
     portrayal = {'Shape': 'circle',
-                 'Color': '#db32c8',
-                 'Filled': 'true',
-                 'r': 1}
+                 'Color': 'Black',
+                 'Filled': True,
+                 'r': 1.5}
     if type(agent) is MaleCattle:
         portrayal['Color'] = 'Blue'
     elif agent.is_infected:
         portrayal['Color'] = 'Red'
     elif not agent.is_fertile:
         portrayal['Color'] = 'Green'
+    elif type(agent) is FemaleCattle:
+        portrayal['Filled'] = False
 
     return portrayal
 
@@ -51,7 +78,7 @@ canvas = SimpleCanvas(agent_portrayal, 700, 700)
 date = DateElement()
 cattle_count_chart = ChartModule(
     [{"Label": "Cattle count", "Color": "Black"}, {"Label": "Infected count", "Color": "Red"}])
-removed_through_random_check = RandomCheckElement()
+removed_through_random_check = StatisticsTableElement()
 
 model_params_constant = {
     'size': 1000,
@@ -59,12 +86,9 @@ model_params_constant = {
     'males_per_female': UserSettableParameter("number", "Males per female", 0.01, 0.001, 0.1),
     'init_infection_count': UserSettableParameter("number", "Initially infected cattle", 1, 1, 10),
     'infection_radius': UserSettableParameter("slider", "Infection radius", 10, 5, 20),
-    'infection_check_sample_size': UserSettableParameter("slider", "Infection check sample size", 1, 1, 10),
+    'infection_check_sample_size': UserSettableParameter("slider", "Infection check sample size", 1, 0, 10),
     'chance_of_virus_transmission': UserSettableParameter("slider", "Chance of virus transmission", 0.02, 0.01, 0.25,
                                                           0.01),
-    'cattle_move_speed': UserSettableParameter("slider", "Move speed", 50, 10, 100),
-    'cattle_vision': UserSettableParameter("slider", "Mating vision", 50, 30, 150),
-    'cattle_separation': UserSettableParameter("slider", "Min separation", 10, 5, 20)
 }
 
 server = CattleFarmServer(CattleFarmModel,

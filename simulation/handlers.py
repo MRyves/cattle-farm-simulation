@@ -19,6 +19,10 @@ class Handler(metaclass=ABCMeta):
 
 
 movement_constants = {
+    'move_speed': 50,
+    'vision': 50,
+    'separation': 10,
+
     'cohere_factor': 0.05,  # the relative importance of matching neighbors' positions
     'separate_factor': 0.1,  # the relative importance of avoiding close neighbors
     'match_factor': 0.8,  # the relative importance of matching neighbors' headings
@@ -30,14 +34,14 @@ class MovementHandler(Handler):
     Handles the movement of the agents using the Boid algorithm. See https://de.wikipedia.org/wiki/Boids
     """
 
-    def __init__(self, agent, movement_speed, agent_vision, agent_separation):
+    def __init__(self, agent):
         super().__init__()
         self.agent = agent
         self.model = agent.model
 
-        self.movement_speed = movement_speed
-        self.agent_vision = agent_vision
-        self.agent_separation = agent_separation
+        self.movement_speed = movement_constants['move_speed']
+        self.agent_vision = movement_constants['vision']
+        self.agent_separation = movement_constants['separation']
 
         self.cohere_factor = movement_constants['cohere_factor']
         self.separate_factor = movement_constants['separate_factor']

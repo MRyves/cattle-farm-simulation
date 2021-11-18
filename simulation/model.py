@@ -16,6 +16,7 @@ constants = {
 
 one_day_delta = timedelta(days=1)
 
+
 class Statistics:
     def __init__(self, infected_count=0):
         self.cattle_count = 0
@@ -31,16 +32,12 @@ class CattleFarmModel(Model):
                  init_infection_count: int,
                  infection_radius: int,
                  infection_check_sample_size: int,
-                 chance_of_virus_transmission: float,
-                 cattle_move_speed: float,
-                 cattle_vision: float,
-                 cattle_separation: float):
+                 chance_of_virus_transmission: float):
         super().__init__()
         self.__cattle_id_sequence = 0
         self.infection_check_sample_size = infection_check_sample_size
 
-        self.cattle_builder = CattleBuilder(self, cattle_move_speed, cattle_vision, cattle_separation, infection_radius,
-                                            chance_of_virus_transmission)
+        self.cattle_builder = CattleBuilder(self, infection_radius, chance_of_virus_transmission)
         self.male_cattle = []
         self.males_in_cage = False
 
@@ -122,6 +119,9 @@ class CattleFarmModel(Model):
         return np.array((new_x, new_y))
 
     def __random_infection_check(self):
+        if self.infection_check_sample_size <= 0:
+            return
+
         selection = filter(lambda a: type(a) is FemaleCattle and a.is_infected,
                            self.random.sample(self.schedule.agents, k=self.infection_check_sample_size))
         for agent in selection:
