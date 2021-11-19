@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractmethod, ABC
+from abc import ABCMeta, abstractmethod
 
 import numpy as np
 from numpy import ndarray
@@ -185,21 +185,21 @@ class InfectionHandler(Handler):
     """
     Handles the virus simulation
     """
-    def __init__(self, agent, infection_radius, chance_of_virus_transmission):
+    def __init__(self, agent, infection_radius, chance_of_virus_transmission, infected_since_days=-1, is_vaccination_handler = False):
         self.agent = agent
         self.infection_radius = infection_radius
         self.chance_of_virus_transmission = chance_of_virus_transmission
         self.space = agent.space
         self.model = agent.model
-        self.infected_since_days = -1
+        self.infected_since_days = infected_since_days
+        self.is_vaccination_handler = is_vaccination_handler
 
     def handle(self) -> None:
         if not self.is_infected:
             return
 
-        print("Handling infection...")
-        self.infected_since_days += 1
         self.__infect_neighbors()
+        self.infected_since_days += 1
 
     def gets_infected(self):
         self.infected_since_days = 0
@@ -212,7 +212,6 @@ class InfectionHandler(Handler):
         healthy_friends_around = list(filter(
             lambda c: not c.is_infected,
             self.space.get_neighbors(self.agent.pos, self.infection_radius, False)))
-        print("Healthy friends around: ", healthy_friends_around)
         for neighbor in healthy_friends_around:
             if self.agent.random.random() <= self.chance_of_virus_transmission:
                 neighbor.gets_infected()

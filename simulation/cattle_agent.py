@@ -51,6 +51,15 @@ class Cattle(Agent, ABC):
     def gets_infected(self):
         pass
 
+    @abstractmethod
+    def gets_vaccinated(self, virus_spread_radius, chance_of_virus_transmission):
+        pass
+
+    @property
+    @abstractmethod
+    def is_vaccinated(self):
+        pass
+
 
 class FemaleCattle(Cattle):
 
@@ -77,7 +86,7 @@ class FemaleCattle(Cattle):
         self.pregnancy_handler.handle()
         self.infection_handler.handle()
         super().step()
-        self.aging_handler.handle() # aging handler must be last action since it may remove agent
+        self.aging_handler.handle()  # aging handler must be last action since it may remove agent
 
     def gets_fertilized(self):
         self.pregnancy_handler.gets_fertilized()
@@ -97,6 +106,16 @@ class FemaleCattle(Cattle):
     @property
     def age_days(self):
         return self.aging_handler.age_days
+
+    def gets_vaccinated(self, virus_spread_radius, chance_of_virus_transmission):
+        self.infection_handler = InfectionHandler(self, virus_spread_radius, chance_of_virus_transmission,
+                                                  self.infection_handler.infected_since_days)
+        self.model.statistics.vaccinated_count += 1
+        pass
+
+    @property
+    def is_vaccinated(self):
+        return self.infection_handler.is_vaccination_handler
 
 
 male_constants = {
@@ -144,6 +163,13 @@ class MaleCattle(Cattle):
 
     def gets_infected(self):
         pass
+
+    def gets_vaccinated(self, virus_spread_radius, chance_of_virus_transmission):
+        pass
+
+    @property
+    def is_vaccinated(self):
+        return True
 
 
 class CattleBuilder:
