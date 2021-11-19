@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, ABC
 
 import numpy as np
 from numpy import ndarray
@@ -16,6 +16,27 @@ class Handler(metaclass=ABCMeta):
         this interface.
         """
         raise NotImplementedError
+
+
+aging_constants = {
+    'max_age': 11 * 356,
+}
+
+
+class AgingHandler(Handler):
+    """
+    Handles the aging & dying process of the cattle
+    """
+
+    def __init__(self, agent, age_days=0):
+        self.model = agent.model
+        self.age_days = age_days
+
+    def handle(self) -> None:
+        self.age_days += 1
+        if self.age_days >= aging_constants['max_age']:
+            self.model.remove_agent(self)
+            return
 
 
 movement_constants = {

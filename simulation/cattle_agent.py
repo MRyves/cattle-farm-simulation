@@ -1,9 +1,10 @@
 import random
+from abc import ABC, abstractmethod
 
 from mesa import Agent
 from numpy import ndarray
 
-from .handlers import MovementHandler
+from .handlers import MovementHandler, AgingHandler
 
 constants = {
     'min_mating_age': 1 * 356,
@@ -17,7 +18,7 @@ constants = {
 }
 
 
-class Cattle(Agent):
+class Cattle(Agent, ABC):
     def __init__(self, unique_id: int, model, age_days: int, heading: ndarray):
         """
         The base class of the agents which implements common methods.
@@ -29,7 +30,6 @@ class Cattle(Agent):
         """
         super().__init__(unique_id, model)
         self.infected_since_day = -1
-        self.age_days = age_days
         self.space = model.space
         self.heading = heading
         self.movement_handler = MovementHandler(self)
@@ -43,16 +43,18 @@ class Cattle(Agent):
         Each agent is activated once per simulation iterator (once per day). This method implements the actions taken
         by an agent once it is activated.
         """
-        self.age_days += 1
-        if self.age_days >= constants['max_age']:
-            self.model.remove_agent(self)
-            return
         if self.is_infected:
             self.infected_since_day += 1
         self.movement_handler.handle()
 
+    @property
+    @abstractmethod
+    def age_days(self):
+        return self.aging_handler.age_days
+
 
 class FemaleCattle(Cattle):
+
     def __init__(self,
                  unique_id: int,
                  model,
@@ -66,13 +68,14 @@ class FemaleCattle(Cattle):
        the same location of the cattle in the model.
        See Cattle base class for parameter doc.
         """
-
         super().__init__(unique_id, model, age_days, heading)
+        self.aging_handler = AgingHandler(self, age_days)
         self.infection_radius = infection_radius
         self.chance_of_virus_transmission = chance_of_virus_transmission
         self.days_pregnant = -1
 
     def step(self):
+        self.aging_handler.handle()
         self.handle_pregnancy()
         self.handle_infection()
         super().step()
@@ -107,6 +110,10 @@ class FemaleCattle(Cattle):
         return self.days_pregnant == -1 and \
                constants['min_mating_age'] < self.age_days < constants['max_mating_age']
 
+    @property
+    def age_days(self):
+        return self.aging_handler.age_days
+
 
 class MaleCattle(Cattle):
     def __init__(self, unique_id: int, model, heading: ndarray):
@@ -132,8 +139,9 @@ class MaleCattle(Cattle):
                     random.random() < constants['fertilization_chance']:
                 chosen_mate.gets_fertilized()
 
-    def reset_age(self):
-        self.age_days = constants['min_mating_age']
+    @property
+    def age_days(self):
+        return constants['min_mating_age']
 
     @property
     def is_infected(self):

@@ -135,7 +135,6 @@ class CattleFarmModel(Model):
             print("Mating season! Adding males to cage...")
             self.males_in_cage = True
             for male in self.male_cattle:
-                male.reset_age()
                 self.add_agent(male, self.__random_position(), False)
         if not self.mating_season and self.males_in_cage:
             print("Mating season is over, removing males from cage...")
