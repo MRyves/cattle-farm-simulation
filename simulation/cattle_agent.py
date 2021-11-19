@@ -109,7 +109,7 @@ class FemaleCattle(Cattle):
 
     def gets_vaccinated(self, virus_spread_radius, chance_of_virus_transmission):
         self.infection_handler = InfectionHandler(self, virus_spread_radius, chance_of_virus_transmission,
-                                                  self.infection_handler.infected_since_days)
+                                                  self.infection_handler.infected_since_days, True)
         self.model.statistics.vaccinated_count += 1
         pass
 

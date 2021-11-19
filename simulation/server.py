@@ -26,6 +26,24 @@ class DateElement(TextElement):
     def render(self, model):
         return "Current date: " + model.current_date.strftime("%b %d %Y")
 
+class LegendListElement(TextElement):
+    def __init__(self):
+        super().__init__()
+        self.list = """
+        <h3>Legend:</h3>
+        <ol>
+            <li>Normal: White (green border)</li>
+            <li>Fertile: White (black border)</li>
+            <li>Male: Blue</li>
+            <li>Infected and not vaccinated: Red</li>
+            <li>Infected and vaccinated: White (red border)</li>
+            <li>Not infected and vaccinated: Green</li>
+        </ol>
+        """
+
+    def render(self, model):
+        return self.list
+
 
 class StatisticsTableElement(TextElement):
     def __init__(self):
@@ -61,12 +79,17 @@ class StatisticsTableElement(TextElement):
 def agent_portrayal(agent: FemaleCattle):
     portrayal = {'Shape': 'circle',
                  'Color': 'Green',
-                 'Filled': True,
+                 'Filled': False,
                  'r': 1.5}
     if type(agent) is MaleCattle:
         portrayal['Color'] = 'Blue'
-    elif agent.is_infected:
+    elif agent.is_infected and not agent.is_vaccinated:
         portrayal['Color'] = 'Red'
+    elif agent.is_infected and agent.is_vaccinated:
+        portrayal['Color'] = 'Red'
+        portrayal['Filled'] = False
+    elif agent.is_vaccinated:
+        portrayal['Filled'] = True
     elif not agent.is_fertile:
         portrayal['Color'] = 'Black'
         portrayal['Filled'] = False
@@ -78,7 +101,8 @@ canvas = SimpleCanvas(agent_portrayal, 700, 700)
 date = DateElement()
 cattle_count_chart = ChartModule(
     [{"Label": "Cattle count", "Color": "Black"}, {"Label": "Infected count", "Color": "Red"}])
-removed_through_random_check = StatisticsTableElement()
+statistics = StatisticsTableElement()
+legend = LegendListElement()
 
 model_params_constant = {
     'size': 1000,
@@ -93,10 +117,10 @@ model_params_constant = {
     'chance_of_virus_transmission_vaccinated': UserSettableParameter("slider",
                                                                      "Chance of virus transmission (vaccinated)", 0.01,
                                                                      0.002, 0.2, 0.002),
-    'vaccinations_per_day': UserSettableParameter("number", "Vaccinations per day", 0, 0, 100000)
+    'vaccinations_per_day': UserSettableParameter("number", "Vaccinations per day", 1, 0, 100000)
 }
 
 server = CattleFarmServer(CattleFarmModel,
-                          [canvas, date, cattle_count_chart, removed_through_random_check],
+                          [canvas, date, cattle_count_chart, statistics, legend],
                           'Cattle farm',
                           model_params_constant)

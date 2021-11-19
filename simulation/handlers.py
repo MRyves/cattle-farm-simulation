@@ -47,7 +47,7 @@ movement_constants = {
 
     'cohere_factor': 0.05,  # the relative importance of matching neighbors' positions
     'separate_factor': 0.1,  # the relative importance of avoiding close neighbors
-    'match_factor': 0.8,  # the relative importance of matching neighbors' headings
+    'match_factor': 0.65,  # the relative importance of matching neighbors' headings
 }
 
 
@@ -213,5 +213,7 @@ class InfectionHandler(Handler):
             lambda c: not c.is_infected,
             self.space.get_neighbors(self.agent.pos, self.infection_radius, False)))
         for neighbor in healthy_friends_around:
-            if self.agent.random.random() <= self.chance_of_virus_transmission:
+            if neighbor.is_vaccinated and self.agent.random.random() <= self.chance_of_virus_transmission * 0.75:
+                neighbor.gets_infected()
+            elif self.agent.random.random() <= self.chance_of_virus_transmission:
                 neighbor.gets_infected()
