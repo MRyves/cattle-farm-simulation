@@ -59,7 +59,7 @@ class StatisticsTableElement(TextElement):
 
 def agent_portrayal(agent: FemaleCattle):
     portrayal = {'Shape': 'circle',
-                 'Color': 'Black',
+                 'Color': 'Green',
                  'Filled': True,
                  'r': 1.5}
     if type(agent) is MaleCattle:
@@ -67,8 +67,7 @@ def agent_portrayal(agent: FemaleCattle):
     elif agent.is_infected:
         portrayal['Color'] = 'Red'
     elif not agent.is_fertile:
-        portrayal['Color'] = 'Green'
-    elif type(agent) is FemaleCattle:
+        portrayal['Color'] = 'Black'
         portrayal['Filled'] = False
 
     return portrayal

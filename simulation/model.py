@@ -18,9 +18,9 @@ one_day_delta = timedelta(days=1)
 
 
 class Statistics:
-    def __init__(self, infected_count=0):
+    def __init__(self):
         self.cattle_count = 0
-        self.infected_count = infected_count
+        self.infected_count = 0
         self.removed_through_random_check = 0
 
 
@@ -43,7 +43,7 @@ class CattleFarmModel(Model):
 
         self.current_date = date(date.today().year, 1, 1)
 
-        self.statistics = Statistics(init_infection_count)
+        self.statistics = Statistics()
 
         self.space = ContinuousSpace(size, size, False)
         self.schedule = RandomActivation(self)
@@ -78,7 +78,7 @@ class CattleFarmModel(Model):
             heading = np.random.random(2) * 2 - 1
             agent = self.cattle_builder.build(self.cattle_id_sequence, heading, age_days)
             if infection_count < init_infection_count:
-                agent.infected_since_day = 0
+                agent.gets_infected()
                 infection_count += 1
             self.add_agent(agent, pos)
 

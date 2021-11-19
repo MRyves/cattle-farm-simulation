@@ -29,13 +29,14 @@ class AgingHandler(Handler):
     """
 
     def __init__(self, agent, age_days=0):
+        self.agent = agent
         self.model = agent.model
         self.age_days = age_days
 
     def handle(self) -> None:
         self.age_days += 1
         if self.age_days >= aging_constants['max_age']:
-            self.model.remove_agent(self)
+            self.model.remove_agent(self.agent)
             return
 
 
@@ -132,3 +133,86 @@ class MovementHandler(Handler):
             heading[1] *= -1
 
         return heading
+
+
+pregnancy_constants = {
+    'min_mating_age': 1 * 356,
+    'max_mating_age': 10 * 356,
+    'gestation_length_days': 285,
+    'female_fetus_chance': 0.5,
+}
+
+
+class PregnancyHandler(Handler):
+    """
+    Handles the pregnancy of female cattle.
+    """
+
+    def __init__(self, agent):
+        self.agent = agent
+        self.model = agent.model
+        self.pregnant_for_days = -1
+
+    def handle(self) -> None:
+        if not self.is_pregnant:
+            return
+        if self.pregnant_for_days >= pregnancy_constants['gestation_length_days']:
+            self.__generate_baby()
+            self.pregnant_for_days = -1
+        else:
+            self.pregnant_for_days += 1
+
+    def gets_fertilized(self):
+        self.pregnant_for_days = 0
+
+    @property
+    def is_pregnant(self):
+        return self.pregnant_for_days != -1
+
+    @property
+    def is_fertile(self):
+        return pregnancy_constants['max_mating_age'] >= self.agent.age_days >= pregnancy_constants[
+            'min_mating_age'] and not self.is_pregnant
+
+    def __generate_baby(self):
+        if self.agent.random.random() < pregnancy_constants['female_fetus_chance']:
+            # add baby cattle at position of mother
+            new_agent = self.model.cattle_builder.build(self.model.cattle_id_sequence, self.agent.heading, 0)
+            self.model.add_agent(new_agent, self.agent.pos)
+
+
+class InfectionHandler(Handler):
+    """
+    Handles the virus simulation
+    """
+    def __init__(self, agent, infection_radius, chance_of_virus_transmission):
+        self.agent = agent
+        self.infection_radius = infection_radius
+        self.chance_of_virus_transmission = chance_of_virus_transmission
+        self.space = agent.space
+        self.model = agent.model
+        self.infected_since_days = -1
+
+    def handle(self) -> None:
+        if not self.is_infected:
+            return
+
+        print("Handling infection...")
+        self.infected_since_days += 1
+        self.__infect_neighbors()
+
+    def gets_infected(self):
+        self.infected_since_days = 0
+
+    @property
+    def is_infected(self):
+        return self.infected_since_days != -1
+
+    def __infect_neighbors(self):
+        healthy_friends_around = list(filter(
+            lambda c: not c.is_infected,
+            self.space.get_neighbors(self.agent.pos, self.infection_radius, False)))
+        print("Healthy friends around: ", healthy_friends_around)
+        for neighbor in healthy_friends_around:
+            if self.agent.random.random() <= self.chance_of_virus_transmission:
+                neighbor.gets_infected()

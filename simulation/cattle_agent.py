@@ -4,15 +4,12 @@ from abc import ABC, abstractmethod
 from mesa import Agent
 from numpy import ndarray
 
-from .handlers import MovementHandler, AgingHandler
+from .handlers import MovementHandler, AgingHandler, PregnancyHandler, InfectionHandler
 
 constants = {
-    'min_mating_age': 1 * 356,
     'max_mating_age': 10 * 356,
     'max_age': 11 * 356,
 
-    'mating_chance': 0.8,
-    'fertilization_chance': 0.6,
     'female_fetus_chance': 0.5,
     'gestation_length_days': 285
 }
@@ -29,28 +26,30 @@ class Cattle(Agent, ABC):
         :param heading: numpy array defining where the cattle heads to (in which direction does it walk)
         """
         super().__init__(unique_id, model)
-        self.infected_since_day = -1
         self.space = model.space
         self.heading = heading
         self.movement_handler = MovementHandler(self)
-
-    @property
-    def is_infected(self):
-        return self.infected_since_day > -1
 
     def step(self) -> None:
         """
         Each agent is activated once per simulation iterator (once per day). This method implements the actions taken
         by an agent once it is activated.
         """
-        if self.is_infected:
-            self.infected_since_day += 1
         self.movement_handler.handle()
 
     @property
     @abstractmethod
     def age_days(self):
-        return self.aging_handler.age_days
+        pass
+
+    @property
+    @abstractmethod
+    def is_infected(self):
+        pass
+
+    @abstractmethod
+    def gets_infected(self):
+        pass
 
 
 class FemaleCattle(Cattle):
@@ -70,49 +69,41 @@ class FemaleCattle(Cattle):
         """
         super().__init__(unique_id, model, age_days, heading)
         self.aging_handler = AgingHandler(self, age_days)
-        self.infection_radius = infection_radius
-        self.chance_of_virus_transmission = chance_of_virus_transmission
+        self.pregnancy_handler = PregnancyHandler(self)
+        self.infection_handler = InfectionHandler(self, infection_radius, chance_of_virus_transmission)
         self.days_pregnant = -1
 
     def step(self):
-        self.aging_handler.handle()
-        self.handle_pregnancy()
-        self.handle_infection()
+        self.pregnancy_handler.handle()
+        self.infection_handler.handle()
         super().step()
-
-    def handle_pregnancy(self):
-        if self.days_pregnant != -1:
-            if self.days_pregnant >= constants['gestation_length_days']:
-                if self.random.random() < constants['female_fetus_chance']:
-                    # add baby cattle at position of mother
-                    new_agent = self.model.cattle_builder.build(self.model.cattle_id_sequence, self.heading, 0)
-                    self.model.add_agent(new_agent, self.pos)
-
-                self.days_pregnant = -1
-            else:
-                self.days_pregnant += 1
-
-    def handle_infection(self):
-        if self.is_infected:
-            healthy_friends_around = list(filter(
-                lambda c: type(c) is FemaleCattle and not c.is_infected,
-                self.space.get_neighbors(self.pos, self.infection_radius, False)))
-            for neighbor in healthy_friends_around:
-                if self.random.random() <= self.chance_of_virus_transmission:
-                    neighbor.infected_since_day = 0
-                    self.model.statistics.infected_count += 1
+        self.aging_handler.handle() # aging handler must be last action since it may remove agent
 
     def gets_fertilized(self):
-        self.days_pregnant = 0
+        self.pregnancy_handler.gets_fertilized()
 
     @property
     def is_fertile(self):
-        return self.days_pregnant == -1 and \
-               constants['min_mating_age'] < self.age_days < constants['max_mating_age']
+        return self.pregnancy_handler.is_fertile
+
+    @property
+    def is_infected(self):
+        return self.infection_handler.is_infected
+
+    def gets_infected(self):
+        self.infection_handler.gets_infected()
+        self.model.statistics.infected_count += 1
 
     @property
     def age_days(self):
         return self.aging_handler.age_days
+
+
+male_constants = {
+    'mating_chance': 0.8,
+    'fertilization_chance': 0.6,
+    'age': 1 * 356,  # default age = min mating age
+}
 
 
 class MaleCattle(Cattle):
@@ -122,7 +113,7 @@ class MaleCattle(Cattle):
         only seasonally placed in the model a male does not age, hence the reset age method.
         See base class for parameter doc
         """
-        super().__init__(unique_id, model, constants['min_mating_age'], heading)
+        super().__init__(unique_id, model, male_constants['age'], heading)
         self.vision = self.movement_handler.agent_vision
 
     def step(self):
@@ -135,13 +126,13 @@ class MaleCattle(Cattle):
             self.space.get_neighbors(self.pos, self.vision, False)))
         if len(females_around) > 0:
             chosen_mate = random.choice(females_around)
-            if random.random() < constants['mating_chance'] and \
-                    random.random() < constants['fertilization_chance']:
+            if random.random() < male_constants['mating_chance'] and \
+                    random.random() < male_constants['fertilization_chance']:
                 chosen_mate.gets_fertilized()
 
     @property
     def age_days(self):
-        return constants['min_mating_age']
+        return male_constants['min_mating_age']
 
     @property
     def is_infected(self):
@@ -150,6 +141,9 @@ class MaleCattle(Cattle):
         :return: False
         """
         return False
+
+    def gets_infected(self):
+        pass
 
 
 class CattleBuilder:
