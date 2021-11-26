@@ -1,7 +1,16 @@
+import math
 from abc import ABCMeta, abstractmethod
+from enum import Enum
 
 import numpy as np
 from numpy import ndarray
+
+
+class RemovalReasons(Enum):
+    NONE = 0
+    AGE = 1
+    DISEASE = 2
+    RANDOM_CHECK = 3
 
 
 class Handler(metaclass=ABCMeta):
@@ -9,12 +18,20 @@ class Handler(metaclass=ABCMeta):
     Base interface for all the handlers of the simulation
     """
 
-    @abstractmethod
+    def __init__(self, agent):
+        self.agent = agent
+
     def handle(self) -> None:
         """
         The handle method implements the logic of each handler. Thus it must be overridden in every implementation of
         this interface.
         """
+        # agent may have been removed from another handler
+        if self.agent.pos is not None:
+            self._action()
+
+    @abstractmethod
+    def _action(self) -> None:
         raise NotImplementedError
 
 
@@ -29,14 +46,14 @@ class AgingHandler(Handler):
     """
 
     def __init__(self, agent, age_days=0):
-        self.agent = agent
+        super().__init__(agent)
         self.model = agent.model
         self.age_days = age_days
 
-    def handle(self) -> None:
+    def _action(self) -> None:
         self.age_days += 1
         if self.age_days >= aging_constants['max_age']:
-            self.model.remove_agent(self.agent)
+            self.model.remove_agent(self.agent, RemovalReasons.AGE)
             return
 
 
@@ -57,8 +74,7 @@ class MovementHandler(Handler):
     """
 
     def __init__(self, agent):
-        super().__init__()
-        self.agent = agent
+        super().__init__(agent)
         self.model = agent.model
 
         self.movement_speed = movement_constants['move_speed']
@@ -69,7 +85,7 @@ class MovementHandler(Handler):
         self.separate_factor = movement_constants['separate_factor']
         self.match_factor = movement_constants['match_factor']
 
-    def handle(self) -> None:
+    def _action(self) -> None:
         neighbors = self.model.space.get_neighbors(self.agent.pos, self.agent_vision, False)
         heading = self.agent.heading
         heading += (
@@ -149,11 +165,11 @@ class PregnancyHandler(Handler):
     """
 
     def __init__(self, agent):
-        self.agent = agent
+        super().__init__(agent)
         self.model = agent.model
         self.pregnant_for_days = -1
 
-    def handle(self) -> None:
+    def _action(self) -> None:
         if not self.is_pregnant:
             return
         if self.pregnant_for_days >= pregnancy_constants['gestation_length_days']:
@@ -181,28 +197,39 @@ class PregnancyHandler(Handler):
             self.model.add_agent(new_agent, self.agent.pos)
 
 
+infection_constants = {
+    'base_mortality_rate': 0.6,
+    'disease_duration': 356,
+}
+
+
 class InfectionHandler(Handler):
     """
     Handles the virus simulation
     """
-    def __init__(self, agent, infection_radius, chance_of_virus_transmission, infected_since_days=-1, is_vaccination_handler = False):
-        self.agent = agent
+
+    def __init__(self, agent, infection_radius, chance_of_virus_transmission, infected_since_days=-1,
+                 is_vaccination_handler=False):
+        super().__init__(agent)
         self.infection_radius = infection_radius
         self.chance_of_virus_transmission = chance_of_virus_transmission
         self.space = agent.space
         self.model = agent.model
         self.infected_since_days = infected_since_days
         self.is_vaccination_handler = is_vaccination_handler
+        self.is_going_to_die = False
 
-    def handle(self) -> None:
+    def _action(self) -> None:
         if not self.is_infected:
             return
 
-        self.__infect_neighbors()
         self.infected_since_days += 1
+        self.__infect_neighbors()
+        self.__heal()
 
     def gets_infected(self):
         self.infected_since_days = 0
+        self.__will_agent_die()
 
     @property
     def is_infected(self):
@@ -217,3 +244,20 @@ class InfectionHandler(Handler):
                 neighbor.gets_infected()
             elif self.agent.random.random() <= self.chance_of_virus_transmission:
                 neighbor.gets_infected()
+
+    def __will_agent_die(self):
+        if self.agent.is_vaccinated:
+            self.is_going_to_die = False
+        else:
+            age_in_years = math.ceil(self.agent.age_days / 356)
+            chance_of_mortality = infection_constants['base_mortality_rate'] / age_in_years
+            if self.agent.random.random() <= chance_of_mortality:
+                self.is_going_to_die = True
+
+    def __heal(self):
+        if self.infected_since_days >= infection_constants['disease_duration']:
+            if self.is_going_to_die:
+                self.model.remove_agent(self.agent, RemovalReasons.DISEASE)
+            else:
+                self.model.statistics.infected_count -= 1
+            self.infected_since_days = -1

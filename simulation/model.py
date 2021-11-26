@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from enum import Enum
 
 import numpy as np
 from mesa import Model
@@ -7,7 +8,8 @@ from mesa.space import ContinuousSpace
 from mesa.time import RandomActivation
 from numpy import ndarray
 
-from simulation.cattle_agent import CattleBuilder, FemaleCattle
+from .cattle_agent import CattleBuilder, FemaleCattle
+from .handlers import RemovalReasons
 
 constants = {
     'start_age_min': 356 * 1,
@@ -22,16 +24,22 @@ class Statistics:
         self.cattle_count = 0
         self.infected_count = 0
         self.vaccinated_count = 0
+        self.died_of_age = 0
+        self.died_of_disease = 0
+        self.removed_by_random_check = 0
         self.virus_located = False
 
 
 class CattleFarmModel(Model):
+
     def __init__(self,
                  size: float,
                  init_cattle_count: int,
                  males_per_female: float,
                  init_infection_count: int,
                  infection_check_sample_size: int,
+                 infection_check_accuracy: float,
+                 infection_check_interval: int,
                  infection_radius: int,
                  chance_of_virus_transmission: float,
                  infection_radius_vaccinated: int,
@@ -43,6 +51,8 @@ class CattleFarmModel(Model):
         self.infection_radius_vaccinated = infection_radius_vaccinated
         self.chance_of_virus_transmission_vaccinated = chance_of_virus_transmission_vaccinated
         self.vaccinations_per_day = vaccinations_per_day
+        self.infection_check_accuracy = infection_check_accuracy
+        self.infection_check_interval = infection_check_interval
 
         self.cattle_builder = CattleBuilder(self, infection_radius, chance_of_virus_transmission)
         self.male_cattle = []
@@ -71,7 +81,7 @@ class CattleFarmModel(Model):
     def init_agents(self, init_cattle_count, males_per_female, init_infection_count):
         male_count = int(round(init_cattle_count * males_per_female, 0))
         # create males
-        for i in range(male_count):
+        for _ in range(male_count):
             pos = self.__random_position()
             heading = np.random.random(2) * 2 - 1
             agent = self.cattle_builder.build(self.cattle_id_sequence, heading, constants['start_age_min'], True)
@@ -96,18 +106,27 @@ class CattleFarmModel(Model):
         if should_account_agent:
             self.statistics.cattle_count += 1
 
-    def remove_agent(self, agent, should_account_agent=True):
+    def remove_agent(self, agent, reason):
         if agent.is_infected:
             self.statistics.infected_count -= 1
-        if should_account_agent:
+        if reason != RemovalReasons.NONE:
             self.statistics.cattle_count -= 1
+            if reason == RemovalReasons.AGE:
+                self.statistics.died_of_age += 1
+            elif reason == RemovalReasons.DISEASE:
+                self.statistics.died_of_disease += 1
+            elif reason == RemovalReasons.RANDOM_CHECK:
+                self.statistics.removed_by_random_check += 1
         self.space.remove_agent(agent)
         self.schedule.remove(agent)
 
     def step(self) -> None:
         self.__handle_mating_seasons()
-        self.__random_infection_check()
         self.__handle_vaccination()
+
+        if self.current_date.timetuple().tm_yday % self.infection_check_interval == 0:
+            self.__random_infection_check()
+
         self.schedule.step()
         self.current_date += one_day_delta
         self.datacollector.collect(self)
@@ -128,14 +147,16 @@ class CattleFarmModel(Model):
         return np.array((new_x, new_y))
 
     def __random_infection_check(self):
-        if self.infection_check_sample_size <= 0 or self.statistics.virus_located:
+        if self.infection_check_sample_size <= 0:
             return
 
         selection = filter(lambda a: type(a) is FemaleCattle and a.is_infected,
                            self.random.sample(self.schedule.agents, k=self.infection_check_sample_size))
         for agent in selection:
-            print("Random infection check found infected cattle, vaccinations should start")
-            self.statistics.virus_located = True
+            if agent.random.random() <= self.infection_check_accuracy:
+                print("Random infection check found infected cattle, vaccinations should start")
+                self.remove_agent(agent, RemovalReasons.RANDOM_CHECK)
+                self.statistics.virus_located = True
 
     def __handle_mating_seasons(self):
         if self.mating_season and not self.males_in_cage:
@@ -147,7 +168,7 @@ class CattleFarmModel(Model):
             print("Mating season is over, removing males from cage...")
             self.males_in_cage = False
             for male in self.male_cattle:
-                self.remove_agent(male, False)
+                self.remove_agent(male, RemovalReasons.NONE)
 
     def __handle_vaccination(self):
         if not self.statistics.virus_located or \

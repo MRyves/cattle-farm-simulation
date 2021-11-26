@@ -26,6 +26,7 @@ class DateElement(TextElement):
     def render(self, model):
         return "Current date: " + model.current_date.strftime("%b %d %Y")
 
+
 class LegendListElement(TextElement):
     def __init__(self):
         super().__init__()
@@ -67,6 +68,9 @@ class StatisticsTableElement(TextElement):
     def render(self, model):
         body = self.__get_table_row("Total cattle: ", str(model.statistics.cattle_count))
         body += self.__get_table_row("Total infected: ", str(model.statistics.infected_count))
+        body += self.__get_table_row("Total deaths of age: ", str(model.statistics.died_of_age))
+        body += self.__get_table_row("Total deaths of disease: ", str(model.statistics.died_of_disease))
+        body += self.__get_table_row("Removed by random check: ", str(model.statistics.removed_by_random_check))
         body += self.__get_table_row("Total vaccination shots", str(model.statistics.vaccinated_count))
         body += self.__get_table_row("Virus located", str(model.statistics.virus_located))
         c = Context({'body': body})
@@ -85,6 +89,7 @@ def agent_portrayal(agent: FemaleCattle):
         portrayal['Color'] = 'Blue'
     elif agent.is_infected and not agent.is_vaccinated:
         portrayal['Color'] = 'Red'
+        portrayal['Filled'] = True
     elif agent.is_infected and agent.is_vaccinated:
         portrayal['Color'] = 'Red'
         portrayal['Filled'] = False
@@ -110,6 +115,8 @@ model_params_constant = {
     'males_per_female': UserSettableParameter("number", "Males per female", 0.01, 0.001, 0.1),
     'init_infection_count': UserSettableParameter("number", "Initially infected cattle", 1, 1, 10),
     'infection_check_sample_size': UserSettableParameter("slider", "Infection check sample size", 1, 0, 10),
+    'infection_check_accuracy': UserSettableParameter("slider", "Infection check accuracy", 0.8, 0.1, 1, 0.1),
+    'infection_check_interval': UserSettableParameter("slider", "Infection check interval", 1, 1, 7),
     'infection_radius': UserSettableParameter("slider", "Infection radius", 10, 5, 40),
     'chance_of_virus_transmission': UserSettableParameter("slider", "Chance of virus transmission", 0.02, 0.01, 0.25,
                                                           0.01),
@@ -117,7 +124,7 @@ model_params_constant = {
     'chance_of_virus_transmission_vaccinated': UserSettableParameter("slider",
                                                                      "Chance of virus transmission (vaccinated)", 0.01,
                                                                      0.002, 0.2, 0.002),
-    'vaccinations_per_day': UserSettableParameter("number", "Vaccinations per day", 1, 0, 100000)
+    'vaccinations_per_day': UserSettableParameter("number", "Vaccinations per day", 1, 0, 100000),
 }
 
 server = CattleFarmServer(CattleFarmModel,
