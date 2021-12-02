@@ -28,6 +28,8 @@ class Statistics:
         self.died_of_disease = 0
         self.removed_by_random_check = 0
         self.virus_located = False
+        self.total_cost = 0
+        self.total_value = 0
 
 
 class CattleFarmModel(Model):
@@ -150,9 +152,12 @@ class CattleFarmModel(Model):
         if self.infection_check_sample_size <= 0:
             return
 
-        selection = filter(lambda a: type(a) is FemaleCattle and a.is_infected,
-                           self.random.sample(self.schedule.agents, k=self.infection_check_sample_size))
-        for agent in selection:
+        random_selection = self.schedule.agents if len(self.schedule.agents) <= self.infection_check_sample_size else \
+            self.random.sample(self.schedule.agents, k=self.infection_check_sample_size)
+
+        infected_of_selection = filter(lambda a: type(a) is FemaleCattle and a.is_infected, random_selection)
+
+        for agent in infected_of_selection:
             if agent.random.random() <= self.infection_check_accuracy:
                 print("Random infection check found infected cattle, vaccinations should start")
                 self.remove_agent(agent, RemovalReasons.RANDOM_CHECK)
@@ -172,11 +177,11 @@ class CattleFarmModel(Model):
 
     def __handle_vaccination(self):
         if not self.statistics.virus_located or \
-                self.statistics.vaccinated_count >= self.statistics.cattle_count or \
                 self.vaccinations_per_day == 0:
             return
 
-        non_vaccinated_cattle = (x for x in self.schedule.agents if type(x) is FemaleCattle and not x.is_vaccinated)
-        selection = self.random.sample(set(non_vaccinated_cattle), k=self.vaccinations_per_day)
+        non_vaccinated_cattle = set(x for x in self.schedule.agents if type(x) is FemaleCattle and not x.is_vaccinated)
+        selection = non_vaccinated_cattle if len(non_vaccinated_cattle) <= self.vaccinations_per_day else \
+            self.random.sample(non_vaccinated_cattle, k=self.vaccinations_per_day)
         for agent in selection:
             agent.gets_vaccinated(self.infection_radius_vaccinated, self.chance_of_virus_transmission_vaccinated)

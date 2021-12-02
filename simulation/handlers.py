@@ -45,7 +45,7 @@ class AgingHandler(Handler):
     Handles the aging & dying process of the cattle
     """
 
-    def __init__(self, agent, age_days=0):
+    def __init__(self, agent, age_days=1):
         super().__init__(agent)
         self.model = agent.model
         self.age_days = age_days
