@@ -66,13 +66,19 @@ class StatisticsTableElement(TextElement):
         self.template = Template(self.table_template_str, engine=Engine())
 
     def render(self, model):
+        cattle_cost = sum([agent.production_cost for agent in model.schedule.agents])
         body = self.__get_table_row("Total cattle: ", str(model.statistics.cattle_count))
         body += self.__get_table_row("Total infected: ", str(model.statistics.infected_count))
         body += self.__get_table_row("Total deaths of age: ", str(model.statistics.died_of_age))
         body += self.__get_table_row("Total deaths of disease: ", str(model.statistics.died_of_disease))
         body += self.__get_table_row("Removed by random check: ", str(model.statistics.removed_by_random_check))
-        body += self.__get_table_row("Total vaccination shots", str(model.statistics.vaccinated_count))
-        body += self.__get_table_row("Virus located", str(model.statistics.virus_located))
+        body += self.__get_table_row("Total vaccination shots: ", str(model.statistics.vaccinated_count))
+        body += self.__get_table_row("Virus located: ", str(model.statistics.virus_located))
+        body += self.__get_table_row("Total cattle cost: ", "${:,.2f}".format(cattle_cost))
+        body += self.__get_table_row("Total cost (including vaccinations): ",
+                                     "${:,.2f}".format(cattle_cost + (9 * model.statistics.vaccinated_count)))
+        body += self.__get_table_row("Total sale value: ",
+                                     "${:,.2f}".format(sum([agent.sale_value for agent in model.schedule.agents])))
         c = Context({'body': body})
         return self.template.render(c)
 
@@ -106,6 +112,9 @@ canvas = SimpleCanvas(agent_portrayal, 700, 700)
 date = DateElement()
 cattle_count_chart = ChartModule(
     [{"Label": "Cattle count", "Color": "Black"}, {"Label": "Infected count", "Color": "Red"}])
+money_chart = ChartModule([
+    {"Label": "Monetary value of cattle (vaccination not accounted)", "Color": "Blue"}
+])
 statistics = StatisticsTableElement()
 legend = LegendListElement()
 
@@ -128,6 +137,6 @@ model_params_constant = {
 }
 
 server = CattleFarmServer(CattleFarmModel,
-                          [canvas, date, cattle_count_chart, statistics, legend],
+                          [canvas, date, cattle_count_chart, money_chart, statistics, legend],
                           'Cattle farm',
                           model_params_constant)

@@ -35,6 +35,38 @@ class Handler(metaclass=ABCMeta):
         raise NotImplementedError
 
 
+monetary_constants = {
+    'young_production_cost': 2.39 * 300,  # 2.39$ * 300kg
+    'adult_production_cost': 2.39 * 450,
+    'young_sale_value': 4.62 * 300,
+    'adult_sale_value': 4.62 * 450,
+
+    'min_adult_age': 4 * 356,
+}
+
+
+class MonetaryValueHandler(Handler):
+    """
+    Keeps track of the monetary value of a single cattle
+    """
+
+    def __init__(self, agent):
+        super().__init__(agent)
+        self.production_cost = 0
+        self.sale_value = 0
+
+    def _action(self) -> None:
+        if self.agent.age_days < monetary_constants['min_adult_age']:
+            self.production_cost = monetary_constants['young_production_cost']
+            self.sale_value = monetary_constants['young_sale_value']
+        else:
+            self.production_cost = monetary_constants['adult_production_cost']
+            self.sale_value = monetary_constants['adult_sale_value']
+
+        if self.agent.is_infected:
+            self.sale_value = 0
+
+
 aging_constants = {
     'max_age': 11 * 356,
 }

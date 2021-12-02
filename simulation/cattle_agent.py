@@ -4,8 +4,7 @@ from abc import ABC, abstractmethod
 from mesa import Agent
 from numpy import ndarray
 
-from .handlers import MovementHandler, AgingHandler, PregnancyHandler, InfectionHandler
-
+from .handlers import MovementHandler, AgingHandler, PregnancyHandler, InfectionHandler, MonetaryValueHandler
 
 constants = {
     'max_mating_age': 10 * 356,
@@ -60,6 +59,20 @@ class Cattle(Agent, ABC):
     def is_vaccinated(self):
         pass
 
+    @property
+    @abstractmethod
+    def production_cost(self):
+        pass
+
+    @property
+    @abstractmethod
+    def sale_value(self):
+        pass
+
+    @property
+    def monetary_value(self):
+        return self.sale_value - self.production_cost
+
 
 class FemaleCattle(Cattle):
 
@@ -80,12 +93,14 @@ class FemaleCattle(Cattle):
         self.aging_handler = AgingHandler(self, age_days)
         self.pregnancy_handler = PregnancyHandler(self)
         self.infection_handler = InfectionHandler(self, infection_radius, chance_of_virus_transmission)
+        self.monetary_value_handler = MonetaryValueHandler(self)
 
     def step(self):
         super().step()
         self.aging_handler.handle()
         self.infection_handler.handle()
         self.pregnancy_handler.handle()
+        self.monetary_value_handler.handle()
 
     def gets_fertilized(self):
         self.pregnancy_handler.gets_fertilized()
@@ -115,6 +130,14 @@ class FemaleCattle(Cattle):
     @property
     def is_vaccinated(self):
         return self.infection_handler.is_vaccination_handler
+
+    @property
+    def production_cost(self):
+        return self.monetary_value_handler.production_cost
+
+    @property
+    def sale_value(self):
+        return self.monetary_value_handler.sale_value
 
 
 male_constants = {
@@ -168,6 +191,14 @@ class MaleCattle(Cattle):
     @property
     def is_vaccinated(self):
         return True
+
+    @property
+    def production_cost(self):
+        return 0
+
+    @property
+    def sale_value(self):
+        return 0
 
 
 class CattleBuilder:

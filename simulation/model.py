@@ -73,8 +73,7 @@ class CattleFarmModel(Model):
             {
                 "Cattle count": lambda m: m.statistics.cattle_count,
                 "Infected count": lambda m: m.statistics.infected_count,
-                "Vaccinated count": lambda m: m.statistics.vaccinated_count,
-                "Virus located": lambda m: m.statistics.virus_located
+                "Monetary value": lambda m: sum([agent.monetary_value for agent in m.schedule.agents])
             },
         )
         self.datacollector.collect(self)
