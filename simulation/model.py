@@ -19,6 +19,11 @@ constants = {
 one_day_delta = timedelta(days=1)
 
 
+def calc_monetary_value(model):
+    monetary_values = [agent.monetary_value for agent in model.schedule.agents]
+    return sum(monetary_values)
+
+
 class Statistics:
     def __init__(self):
         self.cattle_count = 0
@@ -73,7 +78,7 @@ class CattleFarmModel(Model):
             {
                 "Cattle count": lambda m: m.statistics.cattle_count,
                 "Infected count": lambda m: m.statistics.infected_count,
-                "Monetary value": lambda m: sum([agent.monetary_value for agent in m.schedule.agents])
+                "Monetary value": calc_monetary_value
             },
         )
         self.datacollector.collect(self)

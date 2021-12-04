@@ -113,7 +113,7 @@ date = DateElement()
 cattle_count_chart = ChartModule(
     [{"Label": "Cattle count", "Color": "Black"}, {"Label": "Infected count", "Color": "Red"}])
 money_chart = ChartModule([
-    {"Label": "Monetary value of cattle (vaccination not accounted)", "Color": "Blue"}
+    {"Label": "Monetary value", "Color": "Blue"}
 ])
 statistics = StatisticsTableElement()
 legend = LegendListElement()
